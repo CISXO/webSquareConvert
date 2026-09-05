@@ -1,12 +1,9 @@
 'use client';
 
+import { useState } from 'react';
 import {
-  DndContext,
-  closestCenter,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  DragEndEvent,
+  DndContext, closestCenter, PointerSensor,
+  useSensor, useSensors, DragEndEvent,
 } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { ComponentNode } from '@/lib/types';
@@ -15,13 +12,18 @@ import ComponentCard from './ComponentCard';
 interface Props {
   groupId: string;
   children: ComponentNode[];
+  selectedId: string | null;
+  onSelect: (id: string | null) => void;
   onMoveUp: (groupId: string, index: number) => void;
   onMoveDown: (groupId: string, index: number, total: number) => void;
   onReorder: (groupId: string, oldIndex: number, newIndex: number) => void;
   depth?: number;
 }
 
-export default function GroupNode({ groupId, children, onMoveUp, onMoveDown, onReorder, depth = 0 }: Props) {
+export default function GroupNode({ groupId, children, selectedId, onSelect, onMoveUp, onMoveDown, onReorder, depth = 0 }: Props) {
+  // 아코디언: 이 그룹 내에서 1개만 확장
+  const [expandedChildId, setExpandedChildId] = useState<string | null>(null);
+
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -30,6 +32,10 @@ export default function GroupNode({ groupId, children, onMoveUp, onMoveDown, onR
     const oldIndex = children.findIndex(c => c.id === active.id);
     const newIndex = children.findIndex(c => c.id === over.id);
     if (oldIndex !== -1 && newIndex !== -1) onReorder(groupId, oldIndex, newIndex);
+  };
+
+  const handleToggleExpand = (id: string) => {
+    setExpandedChildId(prev => (prev === id ? null : id));
   };
 
   if (children.length === 0) {
@@ -50,6 +56,11 @@ export default function GroupNode({ groupId, children, onMoveUp, onMoveDown, onR
               index={idx}
               total={children.length}
               parentId={groupId}
+              isSelected={selectedId === node.id}
+              isExpanded={expandedChildId === node.id}
+              selectedId={selectedId}
+              onSelect={onSelect}
+              onToggleExpand={handleToggleExpand}
               onMoveUp={onMoveUp}
               onMoveDown={onMoveDown}
               onReorder={onReorder}

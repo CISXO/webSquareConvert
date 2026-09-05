@@ -22,6 +22,7 @@ export default function FileSidebar({
   const [pinned, setPinned] = useState(false);
   const [hovered, setHovered] = useState(false);
   const [showPaste, setShowPaste] = useState(false);
+  const [search, setSearch] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
   const folderRef = useRef<HTMLInputElement>(null);
 
@@ -120,31 +121,65 @@ export default function FileSidebar({
         </div>
       )}
 
-      {/* 파일 목록 */}
+      {/* 파일 목록 + 검색 */}
       {isOpen && xmlFiles.length > 0 && (
-        <div className="flex-1 overflow-y-auto min-h-0">
-          <div className="px-3 py-2 text-[11px] font-medium text-gray-400 uppercase tracking-wider sticky top-0 bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800">
-            XML 파일 ({xmlFiles.length})
+        <div className="flex-1 flex flex-col overflow-hidden min-h-0">
+          {/* 검색 입력 */}
+          <div className="px-2 py-2 border-b border-gray-100 dark:border-gray-800 shrink-0">
+            <div className="relative">
+              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-300 text-xs pointer-events-none">🔍</span>
+              <input
+                type="text"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="파일 검색..."
+                className="w-full pl-6 pr-2 py-1.5 text-xs rounded-md border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              />
+              {search && (
+                <button
+                  onClick={() => setSearch('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500 text-xs"
+                >✕</button>
+              )}
+            </div>
           </div>
-          {xmlFiles.map(entry => {
-            const isActive = activeFile === entry.path;
-            return (
-              <button
-                key={entry.path}
-                onClick={() => onSelectFile(entry)}
-                className={`w-full text-left px-3 py-2.5 text-xs transition-colors border-l-2 ${
-                  isActive
-                    ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-500 text-blue-700 dark:text-blue-300'
-                    : 'border-transparent hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300'
-                }`}
-              >
-                <div className="font-medium truncate">{entry.name}</div>
-                <div className={`text-[10px] truncate mt-0.5 ${isActive ? 'text-blue-400' : 'text-gray-400'}`}>
-                  {entry.path}
-                </div>
-              </button>
-            );
-          })}
+
+          {/* 파일 목록 */}
+          <div className="flex-1 overflow-y-auto min-h-0">
+            <div className="px-3 py-1.5 text-[11px] font-medium text-gray-400 uppercase tracking-wider sticky top-0 bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800">
+              {search
+                ? `${xmlFiles.filter(f => f.name.toLowerCase().includes(search.toLowerCase()) || f.path.toLowerCase().includes(search.toLowerCase())).length}개 검색됨`
+                : `XML 파일 (${xmlFiles.length})`}
+            </div>
+            {xmlFiles
+              .filter(f => !search ||
+                f.name.toLowerCase().includes(search.toLowerCase()) ||
+                f.path.toLowerCase().includes(search.toLowerCase()))
+              .map(entry => {
+                const isActive = activeFile === entry.path;
+                const q = search.toLowerCase();
+                const highlightName = search
+                  ? entry.name.replace(new RegExp(`(${q})`, 'gi'), '<mark class="bg-yellow-200 dark:bg-yellow-800 rounded">$1</mark>')
+                  : entry.name;
+                return (
+                  <button
+                    key={entry.path}
+                    onClick={() => onSelectFile(entry)}
+                    className={`w-full text-left px-3 py-2.5 text-xs transition-colors border-l-2 ${
+                      isActive
+                        ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-500 text-blue-700 dark:text-blue-300'
+                        : 'border-transparent hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300'
+                    }`}
+                  >
+                    <div className="font-medium truncate"
+                      dangerouslySetInnerHTML={{ __html: highlightName }} />
+                    <div className={`text-[10px] truncate mt-0.5 ${isActive ? 'text-blue-400' : 'text-gray-400'}`}>
+                      {entry.path}
+                    </div>
+                  </button>
+                );
+              })}
+          </div>
         </div>
       )}
 

@@ -36,6 +36,7 @@ export function useXmlReorder() {
   const [copied, setCopied] = useState(false);
   const [xmlFiles, setXmlFiles] = useState<XmlFileEntry[]>([]);
   const [activeFile, setActiveFile] = useState<string | null>(null);
+  const [originalTree, setOriginalTree] = useState<ComponentNode[]>([]);
 
   const rebuild = useCallback((p: ParsedXml, t: ComponentNode[]) => {
     try {
@@ -52,6 +53,7 @@ export function useXmlReorder() {
       setParsed(result);
       const t = cloneTree(result.tree);
       setTree(t);
+      setOriginalTree(cloneTree(result.tree));
       rebuild(result, t);
     } catch (e) {
       setError((e as Error).message);
@@ -165,7 +167,7 @@ export function useXmlReorder() {
 
   return {
     rawXml, setRawXml,
-    parsed, tree,
+    parsed, tree, originalTree,
     error, outputXml, copied,
     xmlFiles, activeFile,
     handleParse, handleFileOpen, handleFolderOpen, handleSelectFile,

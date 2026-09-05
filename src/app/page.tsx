@@ -1,80 +1,126 @@
 'use client';
 
+import { useState } from 'react';
 import { useXmlReorder } from '@/hooks/useXmlReorder';
-import XmlInputPanel from '@/components/XmlInputPanel/XmlInputPanel';
+import FileSidebar from '@/components/FileSidebar/FileSidebar';
 import ComponentTree from '@/components/ComponentTree/ComponentTree';
 import XmlOutputPanel from '@/components/XmlOutputPanel/XmlOutputPanel';
+import DesignViewModal from '@/components/DesignViewModal/DesignViewModal';
+import DiffModal from '@/components/DiffModal/DiffModal';
 
 export default function Home() {
   const {
     rawXml, setRawXml,
-    tree, error, outputXml, copied,
+    tree, originalTree,
+    error, outputXml, copied,
     xmlFiles, activeFile,
     handleParse, handleFileOpen, handleFolderOpen, handleSelectFile,
     handleReorder, handleMoveUp, handleMoveDown,
     handleCopy, handleSave,
   } = useXmlReorder();
 
+  const [showDesignView, setShowDesignView] = useState(false);
+  const [showDiff, setShowDiff] = useState(false);
+
+  const hasTree = tree.length > 0;
+
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100">
-      <header className="border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-6 py-4">
-        <div className="max-w-screen-xl mx-auto flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold text-sm">W</div>
-          <div>
-            <h1 className="text-base font-bold leading-tight">WebSquare 컴포넌트 재정렬</h1>
-            <p className="text-xs text-gray-500">XML 소스코드에서 컴포넌트 순서를 손쉽게 변경하세요</p>
+    <div className="h-screen flex flex-col bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 overflow-hidden">
+
+      {/* 헤더 */}
+      <header className="shrink-0 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-4 py-3 z-30">
+        <div className="flex items-center gap-3">
+          <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold text-xs shrink-0">W</div>
+          <div className="flex-1 min-w-0">
+            <h1 className="text-sm font-bold leading-tight truncate">WebSquare 컴포넌트 재정렬</h1>
           </div>
+
+          {/* 헤더 우측 액션 버튼 */}
+          {hasTree && (
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={() => setShowDesignView(true)}
+                className="text-xs px-3 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 transition-colors font-medium"
+              >
+                디자인 뷰
+              </button>
+              <button
+                onClick={() => setShowDiff(true)}
+                className="text-xs px-3 py-1.5 rounded-lg bg-yellow-50 hover:bg-yellow-100 dark:bg-yellow-900/30 dark:hover:bg-yellow-900/50 text-yellow-700 dark:text-yellow-300 border border-yellow-200 dark:border-yellow-800 transition-colors font-medium"
+              >
+                변경 비교
+              </button>
+            </div>
+          )}
         </div>
       </header>
 
-      <main className="max-w-screen-xl mx-auto px-6 py-6 flex flex-col gap-6">
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-          {/* 입력 패널 */}
-          <div className="lg:col-span-2 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4 shadow-sm">
-            <XmlInputPanel
-              rawXml={rawXml}
-              error={error}
-              xmlFiles={xmlFiles}
-              activeFile={activeFile}
-              onChange={setRawXml}
-              onParse={handleParse}
-              onFileOpen={handleFileOpen}
-              onFolderOpen={handleFolderOpen}
-              onSelectFile={handleSelectFile}
-            />
-          </div>
+      {/* 바디: 사이드바 + 메인 */}
+      <div className="flex-1 flex overflow-hidden">
+
+        {/* 좌측 사이드바 */}
+        <FileSidebar
+          xmlFiles={xmlFiles}
+          activeFile={activeFile}
+          rawXml={rawXml}
+          error={error}
+          onFileOpen={handleFileOpen}
+          onFolderOpen={handleFolderOpen}
+          onSelectFile={handleSelectFile}
+          onChange={setRawXml}
+          onParse={handleParse}
+        />
+
+        {/* 메인 컨텐츠 */}
+        <div className="flex-1 flex flex-col overflow-hidden min-w-0">
 
           {/* 컴포넌트 트리 */}
-          <div className="lg:col-span-3 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4 shadow-sm">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300">컴포넌트 트리</h2>
-              {tree.length > 0 && (
-                <span className="text-xs text-gray-400 bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded-full">
-                  드래그 또는 ▲▼ 버튼으로 순서 변경
-                </span>
-              )}
+          <div className="flex-1 overflow-y-auto p-4 min-h-0">
+            <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm h-full flex flex-col">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-gray-800 shrink-0">
+                <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300">컴포넌트 트리</h2>
+                {hasTree && (
+                  <span className="text-[11px] text-gray-400 bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded-full">
+                    ❯ 접기 &nbsp;|&nbsp; ⠿ 드래그 &nbsp;|&nbsp; ▲▼ 이동
+                  </span>
+                )}
+              </div>
+              <div className="flex-1 overflow-y-auto p-4">
+                <ComponentTree
+                  tree={tree}
+                  onMoveUp={handleMoveUp}
+                  onMoveDown={handleMoveDown}
+                  onReorder={handleReorder}
+                />
+              </div>
             </div>
-            <div className="overflow-y-auto max-h-[500px] pr-1">
-              <ComponentTree
-                tree={tree}
-                onMoveUp={handleMoveUp}
-                onMoveDown={handleMoveDown}
-                onReorder={handleReorder}
+          </div>
+
+          {/* 결과 XML */}
+          <div className="shrink-0 px-4 pb-4">
+            <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-4">
+              <XmlOutputPanel
+                outputXml={outputXml}
+                copied={copied}
+                onCopy={handleCopy}
+                onSave={handleSave}
               />
             </div>
           </div>
         </div>
+      </div>
 
-        {/* 결과 출력 */}
-        <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4 shadow-sm">
-          <XmlOutputPanel
-            outputXml={outputXml}
-            copied={copied}
-            onCopy={handleCopy}
-            onSave={handleSave}
-          />
-        </div>
-      </main>
+      {/* 모달 */}
+      {showDesignView && hasTree && (
+        <DesignViewModal tree={tree} onClose={() => setShowDesignView(false)} />
+      )}
+      {showDiff && hasTree && (
+        <DiffModal
+          originalTree={originalTree}
+          currentTree={tree}
+          onClose={() => setShowDiff(false)}
+        />
+      )}
     </div>
   );
 }

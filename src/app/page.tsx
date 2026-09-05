@@ -9,7 +9,8 @@ export default function Home() {
   const {
     rawXml, setRawXml,
     tree, error, outputXml, copied,
-    handleParse, handleFileOpen,
+    xmlFiles, activeFile,
+    handleParse, handleFileOpen, handleFolderOpen, handleSelectFile,
     handleReorder, handleMoveUp, handleMoveDown,
     handleCopy, handleSave,
   } = useXmlReorder();
@@ -28,16 +29,22 @@ export default function Home() {
 
       <main className="max-w-screen-xl mx-auto px-6 py-6 flex flex-col gap-6">
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+          {/* 입력 패널 */}
           <div className="lg:col-span-2 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4 shadow-sm">
             <XmlInputPanel
               rawXml={rawXml}
               error={error}
+              xmlFiles={xmlFiles}
+              activeFile={activeFile}
               onChange={setRawXml}
               onParse={handleParse}
               onFileOpen={handleFileOpen}
+              onFolderOpen={handleFolderOpen}
+              onSelectFile={handleSelectFile}
             />
           </div>
 
+          {/* 컴포넌트 트리 */}
           <div className="lg:col-span-3 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4 shadow-sm">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300">컴포넌트 트리</h2>
@@ -58,6 +65,7 @@ export default function Home() {
           </div>
         </div>
 
+        {/* 결과 출력 */}
         <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4 shadow-sm">
           <XmlOutputPanel
             outputXml={outputXml}

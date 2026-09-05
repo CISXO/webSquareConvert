@@ -5,6 +5,12 @@ import { ComponentNode, ParsedXml } from '@/lib/types';
 import { parseWebSquareXml } from '@/lib/xmlParser';
 import { serializeToXml } from '@/lib/xmlSerializer';
 
+export interface XmlFileEntry {
+  name: string;
+  path: string;
+  content: string;
+}
+
 function cloneTree(nodes: ComponentNode[]): ComponentNode[] {
   return nodes.map(n => ({ ...n, children: cloneTree(n.children) }));
 }
@@ -28,6 +34,8 @@ export function useXmlReorder() {
   const [error, setError] = useState<string | null>(null);
   const [outputXml, setOutputXml] = useState('');
   const [copied, setCopied] = useState(false);
+  const [xmlFiles, setXmlFiles] = useState<XmlFileEntry[]>([]);
+  const [activeFile, setActiveFile] = useState<string | null>(null);
 
   const rebuild = useCallback((p: ParsedXml, t: ComponentNode[]) => {
     try {
@@ -63,11 +71,52 @@ export function useXmlReorder() {
     reader.readAsText(file, 'UTF-8');
   }, [handleParse]);
 
+  const handleFolderOpen = useCallback((files: FileList) => {
+    const xmlList: XmlFileEntry[] = [];
+    const readers: Promise<XmlFileEntry>[] = [];
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      if (!file.name.toLowerCase().endsWith('.xml')) continue;
+
+      const promise = new Promise<XmlFileEntry>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = e => {
+          resolve({
+            name: file.name,
+            path: (file as File & { webkitRelativePath?: string }).webkitRelativePath || file.name,
+            content: e.target?.result as string,
+          });
+        };
+        reader.readAsText(file, 'UTF-8');
+      });
+      readers.push(promise);
+    }
+
+    Promise.all(readers).then(entries => {
+      const sorted = entries.sort((a, b) => a.path.localeCompare(b.path));
+      setXmlFiles(sorted);
+      xmlList.push(...sorted);
+
+      // 첫 번째 파일 자동 로드
+      if (sorted.length > 0) {
+        setRawXml(sorted[0].content);
+        setActiveFile(sorted[0].path);
+        handleParse(sorted[0].content);
+      }
+    });
+  }, [handleParse]);
+
+  const handleSelectFile = useCallback((entry: XmlFileEntry) => {
+    setActiveFile(entry.path);
+    setRawXml(entry.content);
+    handleParse(entry.content);
+  }, [handleParse]);
+
   const handleReorder = useCallback((groupId: string, oldIndex: number, newIndex: number) => {
     if (!parsed) return;
     setTree(prev => {
       let next: ComponentNode[];
-      // '__body__' is a special ID for body-level reordering (multiple top-level siblings)
       if (groupId === '__body__') {
         next = [...prev];
         const [moved] = next.splice(oldIndex, 1);
@@ -104,20 +153,22 @@ export function useXmlReorder() {
 
   const handleSave = useCallback(() => {
     if (!outputXml) return;
+    const fileName = activeFile ? activeFile.split('/').pop() || 'output.xml' : 'output.xml';
     const blob = new Blob([outputXml], { type: 'application/xml' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'output.xml';
+    a.download = fileName;
     a.click();
     URL.revokeObjectURL(url);
-  }, [outputXml]);
+  }, [outputXml, activeFile]);
 
   return {
     rawXml, setRawXml,
     parsed, tree,
     error, outputXml, copied,
-    handleParse, handleFileOpen,
+    xmlFiles, activeFile,
+    handleParse, handleFileOpen, handleFolderOpen, handleSelectFile,
     handleReorder, handleMoveUp, handleMoveDown,
     handleCopy, handleSave,
   };

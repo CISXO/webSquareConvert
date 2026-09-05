@@ -1,67 +1,70 @@
-import Image from "next/image";
+'use client';
+
+import { useXmlReorder } from '@/hooks/useXmlReorder';
+import XmlInputPanel from '@/components/XmlInputPanel/XmlInputPanel';
+import ComponentTree from '@/components/ComponentTree/ComponentTree';
+import XmlOutputPanel from '@/components/XmlOutputPanel/XmlOutputPanel';
 
 export default function Home() {
+  const {
+    rawXml, setRawXml,
+    tree, error, outputXml, copied,
+    handleParse, handleFileOpen,
+    handleReorder, handleMoveUp, handleMoveDown,
+    handleCopy, handleSave,
+  } = useXmlReorder();
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100">
+      <header className="border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-6 py-4">
+        <div className="max-w-screen-xl mx-auto flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold text-sm">W</div>
+          <div>
+            <h1 className="text-base font-bold leading-tight">WebSquare 컴포넌트 재정렬</h1>
+            <p className="text-xs text-gray-500">XML 소스코드에서 컴포넌트 순서를 손쉽게 변경하세요</p>
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
+      </header>
+
+      <main className="max-w-screen-xl mx-auto px-6 py-6 flex flex-col gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+          <div className="lg:col-span-2 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4 shadow-sm">
+            <XmlInputPanel
+              rawXml={rawXml}
+              error={error}
+              onChange={setRawXml}
+              onParse={handleParse}
+              onFileOpen={handleFileOpen}
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+          </div>
+
+          <div className="lg:col-span-3 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300">컴포넌트 트리</h2>
+              {tree.length > 0 && (
+                <span className="text-xs text-gray-400 bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded-full">
+                  드래그 또는 ▲▼ 버튼으로 순서 변경
+                </span>
+              )}
+            </div>
+            <div className="overflow-y-auto max-h-[500px] pr-1">
+              <ComponentTree
+                tree={tree}
+                onMoveUp={handleMoveUp}
+                onMoveDown={handleMoveDown}
+                onReorder={handleReorder}
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4 shadow-sm">
+          <XmlOutputPanel
+            outputXml={outputXml}
+            copied={copied}
+            onCopy={handleCopy}
+            onSave={handleSave}
+          />
         </div>
       </main>
     </div>

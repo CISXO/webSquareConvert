@@ -36,8 +36,9 @@ export function parseWebSquareXml(xmlString: string): ParsedXml {
 
   const headStart = clean.indexOf('<head>');
   const headEndIdx = clean.indexOf('</head>');
-  if (headStart === -1 || headEndIdx === -1) throw new Error('WebSquare AI XML 형식이 아닙니다. (<head> 태그를 찾을 수 없음)');
-  const headRaw = clean.slice(headStart, headEndIdx + '</head>'.length);
+  const headRaw = (headStart !== -1 && headEndIdx !== -1)
+    ? clean.slice(headStart, headEndIdx + '</head>'.length)
+    : '';
 
   const parser = new DOMParser();
   const doc = parser.parseFromString(clean, 'application/xml');

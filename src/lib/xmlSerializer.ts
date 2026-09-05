@@ -72,5 +72,6 @@ export function serializeToXml(parsed: ParsedXml, tree: ComponentNode[]): string
 
   const bodyXml = `${buildOpenTag(bodyEl)}>${leading}${bodyContent}${trailing}</body>`;
 
-  return `${parsed.xmlDeclaration}\n${parsed.rootAttributes}\n    ${parsed.headRaw}\n    ${bodyXml}\n</html>`;
+  const headPart = parsed.headRaw ? `\n    ${parsed.headRaw}` : '';
+  return `${parsed.xmlDeclaration}\n${parsed.rootAttributes}${headPart}\n    ${bodyXml}\n</html>`;
 }

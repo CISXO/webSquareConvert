@@ -27,6 +27,59 @@ function updateGroupChildren(
   });
 }
 
+function findNode(tree: ComponentNode[], id: string): ComponentNode | null {
+  for (const node of tree) {
+    if (node.id === id) return node;
+    if (node.isGroup) {
+      const found = findNode(node.children, id);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+function isSelfOrDescendant(node: ComponentNode, targetId: string): boolean {
+  if (node.id === targetId) return true;
+  return node.children.some(child => isSelfOrDescendant(child, targetId));
+}
+
+/** Remove a node from anywhere in the tree; returns the pruned tree and the removed node. */
+function removeNode(tree: ComponentNode[], id: string): { tree: ComponentNode[]; removed: ComponentNode | null } {
+  let removed: ComponentNode | null = null;
+  const walk = (nodes: ComponentNode[]): ComponentNode[] => {
+    const out: ComponentNode[] = [];
+    for (const node of nodes) {
+      if (node.id === id) { removed = node; continue; }
+      if (node.isGroup) out.push({ ...node, children: walk(node.children) });
+      else out.push(node);
+    }
+    return out;
+  };
+  return { tree: walk(tree), removed };
+}
+
+/** Insert a node into `parentId`'s children, before `beforeId` (or at the end when null). */
+function insertNode(
+  tree: ComponentNode[],
+  parentId: string,
+  beforeId: string | null,
+  node: ComponentNode
+): ComponentNode[] {
+  const place = (children: ComponentNode[]): ComponentNode[] => {
+    const next = [...children];
+    const idx = beforeId ? next.findIndex(c => c.id === beforeId) : -1;
+    if (idx === -1) next.push(node);
+    else next.splice(idx, 0, node);
+    return next;
+  };
+  if (parentId === '__body__') return place(tree);
+  return tree.map(n => {
+    if (n.id === parentId) return { ...n, children: place(n.children) };
+    if (n.isGroup) return { ...n, children: insertNode(n.children, parentId, beforeId, node) };
+    return n;
+  });
+}
+
 export function useXmlReorder() {
   const [rawXml, setRawXml] = useState('');
   const [parsed, setParsed] = useState<ParsedXml | null>(null);
@@ -136,6 +189,29 @@ export function useXmlReorder() {
     });
   }, [parsed, rebuild]);
 
+  /**
+   * 그룹 경계를 넘어 노드를 이동한다.
+   * @param activeId  이동할 노드
+   * @param parentId  대상 부모 그룹 id ('__body__' = 최상위)
+   * @param beforeId  이 노드 앞에 삽입, null이면 대상 그룹의 맨 끝
+   */
+  const handleMoveNode = useCallback((activeId: string, parentId: string, beforeId: string | null) => {
+    if (!parsed) return;
+    if (activeId === parentId || activeId === beforeId) return;
+    setTree(prev => {
+      const active = findNode(prev, activeId);
+      if (!active) return prev;
+      // 그룹을 자기 자신 또는 자손 안으로 넣는 것 방지
+      if (parentId !== '__body__' && isSelfOrDescendant(active, parentId)) return prev;
+
+      const { tree: pruned, removed } = removeNode(prev, activeId);
+      if (!removed) return prev;
+      const next = insertNode(pruned, parentId, beforeId, removed);
+      rebuild(parsed, next);
+      return next;
+    });
+  }, [parsed, rebuild]);
+
   const handleMoveUp = useCallback((groupId: string, index: number) => {
     if (index <= 0) return;
     handleReorder(groupId, index, index - 1);
@@ -171,7 +247,7 @@ export function useXmlReorder() {
     error, outputXml, copied,
     xmlFiles, activeFile,
     handleParse, handleFileOpen, handleFolderOpen, handleSelectFile,
-    handleReorder, handleMoveUp, handleMoveDown,
+    handleReorder, handleMoveNode, handleMoveUp, handleMoveDown,
     handleCopy, handleSave,
   };
 }

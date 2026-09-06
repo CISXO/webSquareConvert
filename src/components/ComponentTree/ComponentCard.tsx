@@ -18,6 +18,7 @@ interface Props {
   onMoveUp: (groupId: string, index: number) => void;
   onMoveDown: (groupId: string, index: number, total: number) => void;
   onReorder: (groupId: string, oldIndex: number, newIndex: number) => void;
+  onMoveNode: (activeId: string, parentId: string, beforeId: string | null) => void;
 }
 
 const TAG_COLORS: Record<string, string> = {
@@ -30,7 +31,7 @@ export default function ComponentCard({
   node, index, total, parentId,
   isSelected, isExpanded, selectedId,
   onSelect, onToggleExpand,
-  onMoveUp, onMoveDown, onReorder,
+  onMoveUp, onMoveDown, onReorder, onMoveNode,
 }: Props) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: node.id });
@@ -122,12 +123,13 @@ export default function ComponentCard({
         <div className="border-t border-dashed border-gray-200 dark:border-gray-700 px-2 py-2 bg-gray-50 dark:bg-gray-800/50">
           <GroupNode
             groupId={node.id}
-            children={node.children}
+            nodes={node.children}
             selectedId={selectedId}
             onSelect={onSelect}
             onMoveUp={onMoveUp}
             onMoveDown={onMoveDown}
             onReorder={onReorder}
+            onMoveNode={onMoveNode}
             depth={1}
           />
         </div>

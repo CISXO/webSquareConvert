@@ -3,6 +3,7 @@
 import {
   DndContext, closestCenter, PointerSensor,
   useSensor, useSensors, DragEndEvent,
+  useDroppable,
   DraggableAttributes,
 } from '@dnd-kit/core';
 import type { SyntheticListenerMap } from '@dnd-kit/core/dist/hooks/utilities';
@@ -13,7 +14,17 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { ComponentNode } from '@/lib/types';
 import { parseCssString, getElementLabel, getGridColumns } from '@/lib/styleParser';
-import { CSSProperties } from 'react';
+import { CSSProperties, useMemo } from 'react';
+
+const INTO_PREFIX = 'into:';
+
+/** id -> 부모 그룹 id ('__body__' = 최상위) */
+function buildParentMap(nodes: ComponentNode[], parentId: string, map: Map<string, string>) {
+  for (const n of nodes) {
+    map.set(n.id, parentId);
+    if (n.isGroup) buildParentMap(n.children, n.id, map);
+  }
+}
 
 interface CommonProps {
   selectedId: string | null;
@@ -21,6 +32,7 @@ interface CommonProps {
   onMoveUp: (groupId: string, index: number) => void;
   onMoveDown: (groupId: string, index: number, total: number) => void;
   onReorder: (groupId: string, oldIndex: number, newIndex: number) => void;
+  onMoveNode: (activeId: string, parentId: string, beforeId: string | null) => void;
 }
 
 // ─── Grid 미리보기 ────────────────────────────────────────────────────────────
@@ -65,9 +77,11 @@ function GridPreview({ el, style }: { el: Element; style: CSSProperties }) {
 function VisualNodeInner({ node, parentId, index, total, props }: {
   node: ComponentNode; parentId: string; index: number; total: number; props: CommonProps;
 }) {
-  const { selectedId, onSelect, onMoveUp, onMoveDown, onReorder } = props;
+  const { selectedId, onSelect, onMoveUp, onMoveDown } = props;
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: node.id });
+  // 그룹 본문에 대한 드롭 존 (자식으로 편입 / 빈 그룹 대응). 비그룹 노드에서는 사용하지 않음.
+  const { setNodeRef: setDropRef, isOver: isDropOver } = useDroppable({ id: INTO_PREFIX + node.id });
 
   const sortStyle: CSSProperties = {
     transform: CSS.Transform.toString(transform),
@@ -120,15 +134,6 @@ function VisualNodeInner({ node, parentId, index, total, props }: {
 
   // ── xf:group (컨테이너) ────────────────────────────────────────────
   if (node.isGroup) {
-    const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
-    const handleDragEnd = (e: DragEndEvent) => {
-      const { active, over } = e;
-      if (!over || active.id === over.id) return;
-      const oi = node.children.findIndex(c => c.id === active.id);
-      const ni = node.children.findIndex(c => c.id === over.id);
-      if (oi !== -1 && ni !== -1) onReorder(node.id, oi, ni);
-    };
-
     const isFlexRow = (elStyle.display === 'flex') ||
       (['height'].some(k => (elStyle as Record<string, string>)[k]?.includes('40px') ||
         (elStyle as Record<string, string>)[k]?.includes('30px')));
@@ -160,22 +165,30 @@ function VisualNodeInner({ node, parentId, index, total, props }: {
           </div>
 
           {/* 자식 렌더링 */}
-          <div style={{ padding: elStyle.padding || '8px' }}
-            className={`flex gap-2 ${isFlexRow ? 'flex-row flex-wrap items-start' : 'flex-col'}`}>
-            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-              <SortableContext items={node.children.map(c => c.id)} strategy={verticalListSortingStrategy}>
-                {node.children.map((child, idx) => (
-                  <VisualNodeInner
-                    key={child.id}
-                    node={child}
-                    parentId={node.id}
-                    index={idx}
-                    total={node.children.length}
-                    props={props}
-                  />
-                ))}
-              </SortableContext>
-            </DndContext>
+          <div
+            ref={setDropRef}
+            style={{ padding: elStyle.padding || '8px' }}
+            className={`flex gap-2 min-h-[32px] rounded-lg transition-colors ${
+              isFlexRow ? 'flex-row flex-wrap items-start' : 'flex-col'
+            } ${isDropOver ? 'bg-blue-100/60 dark:bg-blue-900/20 outline outline-2 outline-dashed outline-blue-400' : ''}`}
+          >
+            <SortableContext items={node.children.map(c => c.id)} strategy={verticalListSortingStrategy}>
+              {node.children.length === 0 && (
+                <span className="text-[11px] text-gray-300 dark:text-gray-600 italic px-1 py-1">
+                  여기로 드래그하여 그룹에 추가
+                </span>
+              )}
+              {node.children.map((child, idx) => (
+                <VisualNodeInner
+                  key={child.id}
+                  node={child}
+                  parentId={node.id}
+                  index={idx}
+                  total={node.children.length}
+                  props={props}
+                />
+              ))}
+            </SortableContext>
           </div>
         </div>
       </div>
@@ -238,6 +251,12 @@ interface VisualViewProps extends CommonProps {
 export default function VisualView({ tree, ...rest }: VisualViewProps) {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
+  const parentOf = useMemo(() => {
+    const map = new Map<string, string>();
+    buildParentMap(tree, '__body__', map);
+    return map;
+  }, [tree]);
+
   if (tree.length === 0) {
     return (
       <div className="flex items-center justify-center h-40 text-gray-400 text-sm">
@@ -248,10 +267,19 @@ export default function VisualView({ tree, ...rest }: VisualViewProps) {
 
   const handleDragEnd = (e: DragEndEvent) => {
     const { active, over } = e;
-    if (!over || active.id === over.id) return;
-    const oi = tree.findIndex(c => c.id === active.id);
-    const ni = tree.findIndex(c => c.id === over.id);
-    if (oi !== -1 && ni !== -1) rest.onReorder('__body__', oi, ni);
+    if (!over) return;
+    const activeId = String(active.id);
+    const overId = String(over.id);
+    if (activeId === overId) return;
+
+    // 그룹 본문 드롭 존 → 해당 그룹의 맨 끝에 편입
+    if (overId.startsWith(INTO_PREFIX)) {
+      rest.onMoveNode(activeId, overId.slice(INTO_PREFIX.length), null);
+      return;
+    }
+    // 다른 노드 위 → 그 노드가 속한 부모에서 그 노드 앞에 삽입 (그룹간 이동 포함)
+    const targetParent = parentOf.get(overId) ?? '__body__';
+    rest.onMoveNode(activeId, targetParent, overId);
   };
 
   return (

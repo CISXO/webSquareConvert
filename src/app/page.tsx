@@ -18,7 +18,7 @@ export default function Home() {
     error, outputXml, copied,
     xmlFiles, activeFile,
     handleParse, handleFileOpen, handleFolderOpen, handleSelectFile,
-    handleReorder, handleMoveUp, handleMoveDown,
+    handleReorder, handleMoveNode, handleMoveUp, handleMoveDown,
     handleCopy, handleSave,
   } = useXmlReorder();
 
@@ -138,6 +138,7 @@ export default function Home() {
                     onMoveUp={handleMoveUp}
                     onMoveDown={handleMoveDown}
                     onReorder={handleReorder}
+                    onMoveNode={handleMoveNode}
                   />
                 ) : (
                   <ComponentTree
@@ -147,6 +148,7 @@ export default function Home() {
                     onMoveUp={handleMoveUp}
                     onMoveDown={handleMoveDown}
                     onReorder={handleReorder}
+                    onMoveNode={handleMoveNode}
                   />
                 )}
               </div>
@@ -175,6 +177,7 @@ export default function Home() {
           onMoveUp={handleMoveUp}
           onMoveDown={handleMoveDown}
           onReorder={handleReorder}
+          onMoveNode={handleMoveNode}
         />
       )}
       {showDiff && hasTree && (

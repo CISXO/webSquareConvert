@@ -10,9 +10,10 @@ interface Props {
   onMoveUp: (groupId: string, index: number) => void;
   onMoveDown: (groupId: string, index: number, total: number) => void;
   onReorder: (groupId: string, oldIndex: number, newIndex: number) => void;
+  onMoveNode: (activeId: string, parentId: string, beforeId: string | null) => void;
 }
 
-export default function DesignViewModal({ tree, onClose, onMoveUp, onMoveDown, onReorder }: Props) {
+export default function DesignViewModal({ tree, onClose, onMoveUp, onMoveDown, onReorder, onMoveNode }: Props) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   return (
@@ -40,6 +41,7 @@ export default function DesignViewModal({ tree, onClose, onMoveUp, onMoveDown, o
             onMoveUp={onMoveUp}
             onMoveDown={onMoveDown}
             onReorder={onReorder}
+            onMoveNode={onMoveNode}
           />
         </div>
       </div>

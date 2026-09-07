@@ -91,15 +91,22 @@ export default function ComponentCard({
           ⠿
         </span>
 
-        {/* 태그 배지 */}
+        {/* 1. xf:group 형식 배지 */}
         <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full font-medium shrink-0 ${tagClass}`}>
           {node.tagName}
         </span>
 
-        {/* ID */}
-        <span className="text-xs text-gray-500 dark:text-gray-400 font-mono truncate flex-1 min-w-0">
-          {node.xmlId || <span className="italic text-gray-300 dark:text-gray-600">id없음</span>}
+        {/* 2. id */}
+        <span className="text-[10px] font-mono font-semibold shrink-0 px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
+          id: {node.xmlId || '없음'}
         </span>
+
+        {/* 3. tagname */}
+        <span className="text-[10px] font-mono font-semibold truncate min-w-0 px-1.5 py-0.5 rounded-full bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300">
+          tagname: {node.tagName || '없음'}
+        </span>
+
+        <span className="flex-1 min-w-0" />
 
         {/* 이동 — 오른쪽 고정 */}
         <div className="flex items-center gap-0.5 shrink-0 ml-1" onClick={e => e.stopPropagation()}>

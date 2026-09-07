@@ -12,7 +12,7 @@ function buildFlatOrder(nodes: ComponentNode[], prefix = ''): { key: string; lab
   const result: { key: string; label: string; depth: number }[] = [];
   nodes.forEach((node, idx) => {
     const pos = prefix ? `${prefix}.${idx + 1}` : `${idx + 1}`;
-    const label = node.xmlId ? `${node.tagName} #${node.xmlId}` : node.tagName;
+    const label = `${node.tagName} · id: ${node.xmlId || '없음'} · tagname: ${node.tagName || '없음'}`;
     result.push({ key: node.id, label, depth: prefix.split('.').filter(Boolean).length });
     if (node.isGroup && node.children.length > 0) {
       result.push(...buildFlatOrder(node.children, pos));

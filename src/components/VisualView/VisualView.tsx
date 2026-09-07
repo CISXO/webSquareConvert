@@ -124,8 +124,12 @@ function VisualNodeInner({ node, parentId, index, total, props }: {
         <DragHandle attrs={attributes} listeners={listeners} floating />
         <MoveButtons index={index} total={total} parentId={parentId}
           onUp={onMoveUp} onDown={onMoveDown} floating />
-        <div className="text-[10px] text-green-500 dark:text-green-400 mb-0.5 font-mono">
-          {node.tagName}{node.xmlId ? ` #${node.xmlId}` : ''}
+        <div className="text-[10px] mb-0.5 font-mono flex items-center gap-1.5 flex-wrap">
+          <span className="px-1.5 py-0.5 rounded-full font-medium bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300">
+            {node.tagName}
+          </span>
+          <span className="px-1.5 py-0.5 rounded-full font-semibold bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">id: {node.xmlId || '없음'}</span>
+          <span className="px-1.5 py-0.5 rounded-full font-semibold bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300">tagname: {node.tagName || '없음'}</span>
         </div>
         <GridPreview el={node.element} style={{ height: elStyle.height || '120px' }} />
       </div>
@@ -152,12 +156,18 @@ function VisualNodeInner({ node, parentId, index, total, props }: {
           <div className="flex items-center gap-1.5 px-2 py-1 border-b border-dashed border-gray-200 dark:border-gray-700">
             <span {...attributes} {...listeners}
               className="cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 text-base select-none">⠿</span>
-            <span className="text-[10px] font-mono text-purple-500 dark:text-purple-400 font-semibold">
+            {/* 1. xf:group 형식 */}
+            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-full font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300">
               {node.tagName}
             </span>
-            {node.xmlId && (
-              <span className="text-[10px] font-mono text-gray-400">#{node.xmlId}</span>
-            )}
+            {/* 2. id */}
+            <span className="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
+              id: {node.xmlId || '없음'}
+            </span>
+            {/* 3. tagname */}
+            <span className="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded-full bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300">
+              tagname: {node.tagName || '없음'}
+            </span>
             <div className="ml-auto flex gap-0.5">
               <MoveButtons index={index} total={total} parentId={parentId}
                 onUp={onMoveUp} onDown={onMoveDown} />
@@ -198,10 +208,14 @@ function VisualNodeInner({ node, parentId, index, total, props }: {
   // ── 기타 ────────────────────────────────────────────────────────────
   return (
     <div ref={setNodeRef} style={sortStyle}
-      className={`relative group border border-gray-200 dark:border-gray-700 rounded px-2 py-1 text-[11px] font-mono text-gray-500 ${isSelected ? 'ring-2 ring-blue-500' : ''}`}
+      className={`relative group border border-gray-200 dark:border-gray-700 rounded px-2 py-1 text-[10px] font-mono text-gray-500 flex items-center gap-1.5 flex-wrap ${isSelected ? 'ring-2 ring-blue-500' : ''}`}
       onClick={() => onSelect(node.id)}>
       <DragHandle attrs={attributes} listeners={listeners} />
-      {node.tagName}{node.xmlId ? ` #${node.xmlId}` : ''}
+      <span className="px-1.5 py-0.5 rounded-full font-medium bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300">
+        {node.tagName}
+      </span>
+      <span className="px-1.5 py-0.5 rounded-full font-semibold bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">id: {node.xmlId || '없음'}</span>
+      <span className="px-1.5 py-0.5 rounded-full font-semibold bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300">tagname: {node.tagName || '없음'}</span>
       <MoveButtons index={index} total={total} parentId={parentId} onUp={onMoveUp} onDown={onMoveDown} />
     </div>
   );

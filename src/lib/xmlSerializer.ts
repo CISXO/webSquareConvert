@@ -1,77 +1,46 @@
 import { ComponentNode, ParsedXml } from './types';
 
 // Strip xmlns declarations added by XMLSerializer when serializing individual elements.
-// Safe for WebSquare XML because all namespaces are declared on the root <html> element.
+// Only reached by the fallback path below (a node we couldn't map to raw source).
 function stripXmlns(xml: string): string {
   return xml.replace(/ xmlns(?::[a-zA-Z0-9._-]+)?="[^"]*"/g, '');
 }
 
-function escapeAttr(value: string): string {
-  return value.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
-}
-
-function buildOpenTag(el: Element): string {
-  let tag = `<${el.tagName}`;
-  for (let i = 0; i < el.attributes.length; i++) {
-    const attr = el.attributes[i];
-    tag += ` ${attr.name}="${escapeAttr(attr.value)}"`;
-  }
-  return tag;
-}
-
-function getElementSeparators(childNodes: ChildNode[]): { leading: string; separators: string[]; trailing: string } {
-  const firstElIdx = childNodes.findIndex(n => n.nodeType === 1);
-  const lastElIdx = childNodes.map(n => n.nodeType).lastIndexOf(1);
-
-  const leading = firstElIdx === -1 ? '' : childNodes.slice(0, firstElIdx).map(n => n.textContent || '').join('');
-  const trailing = lastElIdx === -1 ? '' : childNodes.slice(lastElIdx + 1).map(n => n.textContent || '').join('');
-
-  const elementChildren = childNodes.filter(n => n.nodeType === 1);
-  const separators: string[] = [];
-  for (let i = 0; i < elementChildren.length - 1; i++) {
-    const from = childNodes.indexOf(elementChildren[i]) + 1;
-    const to = childNodes.indexOf(elementChildren[i + 1]);
-    separators.push(childNodes.slice(from, to).map(n => n.textContent || '').join(''));
-  }
-
-  return { leading, separators, trailing };
+function joinChildren(children: ComponentNode[], separators: string[]): string {
+  const defaultSep = separators[0] ?? '\n';
+  return children
+    .map((child, idx) =>
+      idx < children.length - 1
+        ? serializeNode(child) + (separators[idx] ?? defaultSep)
+        : serializeNode(child)
+    )
+    .join('');
 }
 
 function serializeNode(node: ComponentNode): string {
-  if (!node.isGroup || node.children.length === 0) {
-    return stripXmlns(new XMLSerializer().serializeToString(node.element));
-  }
+  const rp = node.raw;
 
-  const el = node.element;
-  const childNodes = Array.from(el.childNodes);
-  const { leading, separators, trailing } = getElementSeparators(childNodes);
-  const defaultSep = separators[0] || '\n';
+  // Fallback: node was never mapped to raw source. Should not happen for parsed input.
+  if (!rp) return stripXmlns(new XMLSerializer().serializeToString(node.element));
 
-  const innerContent = node.children
-    .map((child, idx) => {
-      const xml = serializeNode(child);
-      return idx < node.children.length - 1 ? xml + (separators[idx] ?? defaultSep) : xml;
-    })
-    .join('');
+  // Leaf, or a group we didn't descend into — emit the original bytes verbatim.
+  if (!node.isGroup || rp.rawOpen === undefined) return rp.raw;
 
-  return `${buildOpenTag(el)}>${leading}${innerContent}${trailing}</${el.tagName}>`;
+  const inner = (rp.leading ?? '') + joinChildren(node.children, rp.separators ?? []) + (rp.trailing ?? '');
+  return `${rp.rawOpen}${inner}${rp.rawClose ?? `</${node.tagName}>`}`;
 }
 
+/**
+ * Rebuild the document by splicing the (possibly reordered) <body> content back into the
+ * original source. Everything outside <body> — the XML declaration, <html> attributes, and
+ * the entire <head> including its <script>/JS — is carried through untouched. With no
+ * reordering, the output is byte-for-byte identical to the input.
+ */
 export function serializeToXml(parsed: ParsedXml, tree: ComponentNode[]): string {
-  const bodyEl = parsed.bodyNode;
-  const childNodes = Array.from(bodyEl.childNodes);
-  const { leading, separators, trailing } = getElementSeparators(childNodes);
-  const defaultSep = separators[0] || '\n';
+  const inner =
+    parsed.bodyLeading +
+    joinChildren(tree, parsed.bodySeparators) +
+    parsed.bodyTrailing;
 
-  const bodyContent = tree
-    .map((node, idx) => {
-      const xml = serializeNode(node);
-      return idx < tree.length - 1 ? xml + (separators[idx] ?? defaultSep) : xml;
-    })
-    .join('');
-
-  const bodyXml = `${buildOpenTag(bodyEl)}>${leading}${bodyContent}${trailing}</body>`;
-
-  const headPart = parsed.headRaw ? `\n    ${parsed.headRaw}` : '';
-  return `${parsed.xmlDeclaration}\n${parsed.rootAttributes}${headPart}\n    ${bodyXml}\n</html>`;
+  return parsed.raw.slice(0, parsed.bodyInnerStart) + inner + parsed.raw.slice(parsed.bodyInnerEnd);
 }

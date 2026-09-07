@@ -9,6 +9,15 @@ import DesignViewModal from '@/components/DesignViewModal/DesignViewModal';
 import DiffModal from '@/components/DiffModal/DiffModal';
 
 export default function Home() {
+  const [toast, setToast] = useState<string | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showToast = useCallback((msg: string) => {
+    setToast(msg);
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(null), 2500);
+  }, []);
+
   const {
     rawXml, setRawXml,
     tree, originalTree,
@@ -18,26 +27,18 @@ export default function Home() {
     handleReorder, handleMoveNode, handleMoveUp, handleMoveDown,
     handleReset,
     handleCopy, handleSave,
-  } = useXmlReorder();
+  } = useXmlReorder(showToast);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showDesignView, setShowDesignView] = useState(false);
   const [showDiff, setShowDiff] = useState(false);
   const [showOutput, setShowOutput] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
-  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const hasTree = tree.length > 0;
 
   const handleSelect = (id: string | null) => {
     setSelectedId(prev => prev === id ? null : id);
   };
-
-  const showToast = useCallback((msg: string) => {
-    setToast(msg);
-    if (toastTimer.current) clearTimeout(toastTimer.current);
-    toastTimer.current = setTimeout(() => setToast(null), 2500);
-  }, []);
 
   const doReset = useCallback(() => {
     handleReset();

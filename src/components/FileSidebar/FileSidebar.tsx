@@ -25,13 +25,24 @@ export default function FileSidebar({
   const [search, setSearch] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
   const folderRef = useRef<HTMLInputElement>(null);
+  const parseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const isOpen = pinned || hovered;
 
-  const handlePaste = useCallback((e: React.ClipboardEvent<HTMLTextAreaElement>) => {
-    const text = e.clipboardData.getData('text');
-    if (text.trim()) setTimeout(() => onParse(text), 150);
+  // 붙여넣기/입력 시 textarea의 "전체 값"을 디바운스해서 파싱한다.
+  // (클립보드 조각만 파싱하면 부분 붙여넣기에서 깨진 XML이 넘어가 트리가 비워진다.)
+  const scheduleParse = useCallback((xml: string) => {
+    if (parseTimer.current) clearTimeout(parseTimer.current);
+    parseTimer.current = setTimeout(() => {
+      if (xml.trim()) onParse(xml);
+    }, 250);
   }, [onParse]);
+
+  const handleChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const v = e.target.value;
+    onChange(v);
+    scheduleParse(v);
+  }, [onChange, scheduleParse]);
 
   return (
     <aside
@@ -96,11 +107,11 @@ export default function FileSidebar({
         <div className="p-2 border-b border-gray-100 dark:border-gray-800 shrink-0">
           <textarea
             value={rawXml}
-            onChange={e => onChange(e.target.value)}
-            onPaste={handlePaste}
+            onChange={handleChange}
             onKeyDown={e => {
               if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
                 e.preventDefault();
+                if (parseTimer.current) clearTimeout(parseTimer.current);
                 onParse(rawXml);
               }
             }}
@@ -112,7 +123,10 @@ export default function FileSidebar({
             <p className="text-[11px] text-red-500 mt-1 leading-snug">{error}</p>
           )}
           <button
-            onClick={() => onParse(rawXml)}
+            onClick={() => {
+              if (parseTimer.current) clearTimeout(parseTimer.current);
+              onParse(rawXml);
+            }}
             disabled={!rawXml.trim()}
             className="mt-1.5 w-full py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 dark:disabled:bg-gray-700 text-white text-xs font-medium transition-colors disabled:cursor-not-allowed"
           >

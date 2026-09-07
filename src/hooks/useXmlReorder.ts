@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { ComponentNode, ParsedXml } from '@/lib/types';
 import { parseWebSquareXml } from '@/lib/xmlParser';
 import { serializeToXml } from '@/lib/xmlSerializer';
@@ -76,7 +76,7 @@ function insertNode(
   });
 }
 
-export function useXmlReorder() {
+export function useXmlReorder(onMutate?: (msg: string) => void) {
   const [rawXml, setRawXml] = useState('');
   const [parsed, setParsed] = useState<ParsedXml | null>(null);
   const [tree, setTree] = useState<ComponentNode[]>([]);
@@ -86,6 +86,12 @@ export function useXmlReorder() {
   const [xmlFiles, setXmlFiles] = useState<XmlFileEntry[]>([]);
   const [activeFile, setActiveFile] = useState<string | null>(null);
   const [originalTree, setOriginalTree] = useState<ComponentNode[]>([]);
+
+  // 콜백에서 최신 트리를 참조하기 위한 ref (콜백 재생성 없이 변경 여부 판단용).
+  const treeRef = useRef<ComponentNode[]>(tree);
+  useEffect(() => { treeRef.current = tree; }, [tree]);
+
+  const notify = useCallback((msg: string) => onMutate?.(msg), [onMutate]);
 
   const rebuild = useCallback((p: ParsedXml, t: ComponentNode[]) => {
     try {
@@ -164,8 +170,9 @@ export function useXmlReorder() {
     handleParse(entry.content);
   }, [handleParse]);
 
-  const handleReorder = useCallback((groupId: string, oldIndex: number, newIndex: number) => {
+  const handleReorder = useCallback((groupId: string, oldIndex: number, newIndex: number, silent = false) => {
     if (!parsed) return;
+    if (oldIndex === newIndex) return;
     setTree(prev => {
       let next: ComponentNode[];
       if (groupId === '__body__') {
@@ -183,7 +190,8 @@ export function useXmlReorder() {
       rebuild(parsed, next);
       return next;
     });
-  }, [parsed, rebuild]);
+    if (!silent) notify('순서를 변경했습니다');
+  }, [parsed, rebuild, notify]);
 
   /**
    * 노드를 같은 부모 그룹 안에서만 재배치한다.
@@ -195,6 +203,8 @@ export function useXmlReorder() {
   const handleMoveNode = useCallback((activeId: string, parentId: string, beforeId: string | null) => {
     if (!parsed) return;
     if (activeId === parentId || activeId === beforeId) return;
+    // 그룹 경계를 넘는 이동은 무시 — 토스트도 띄우지 않는다.
+    if (parentIdOf(treeRef.current, activeId) !== parentId) return;
     setTree(prev => {
       // 같은 그룹 위치에서만 순서 변경 허용
       if (parentIdOf(prev, activeId) !== parentId) return prev;
@@ -205,7 +215,8 @@ export function useXmlReorder() {
       rebuild(parsed, next);
       return next;
     });
-  }, [parsed, rebuild]);
+    notify('위치를 이동했습니다');
+  }, [parsed, rebuild, notify]);
 
   /** 전체 트리를 파싱 직후 원본 순서로 되돌린다. */
   const handleReset = useCallback(() => {
@@ -217,13 +228,15 @@ export function useXmlReorder() {
 
   const handleMoveUp = useCallback((groupId: string, index: number) => {
     if (index <= 0) return;
-    handleReorder(groupId, index, index - 1);
-  }, [handleReorder]);
+    handleReorder(groupId, index, index - 1, true);
+    notify('위로 이동했습니다');
+  }, [handleReorder, notify]);
 
   const handleMoveDown = useCallback((groupId: string, index: number, total: number) => {
     if (index >= total - 1) return;
-    handleReorder(groupId, index, index + 1);
-  }, [handleReorder]);
+    handleReorder(groupId, index, index + 1, true);
+    notify('아래로 이동했습니다');
+  }, [handleReorder, notify]);
 
   const handleCopy = useCallback(async () => {
     if (!outputXml) return;

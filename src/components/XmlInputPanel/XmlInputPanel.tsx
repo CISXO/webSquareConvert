@@ -24,25 +24,26 @@ export default function XmlInputPanel({
   const pasteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showFileList, setShowFileList] = useState(false);
 
-  // 붙여넣기 시 자동 파싱 (100ms 디바운스)
-  const handlePaste = useCallback((e: React.ClipboardEvent<HTMLTextAreaElement>) => {
-    const text = e.clipboardData.getData('text');
-    if (!text.trim()) return;
+  // 입력/붙여넣기 시 textarea의 "전체 값"을 디바운스해서 파싱한다.
+  // (클립보드 조각만 파싱하면 부분 붙여넣기에서 깨진 XML이 넘어간다.)
+  const scheduleParse = useCallback((xml: string) => {
     if (pasteTimerRef.current) clearTimeout(pasteTimerRef.current);
     pasteTimerRef.current = setTimeout(() => {
-      onParse(text);
-    }, 150);
+      if (xml.trim()) onParse(xml);
+    }, 250);
   }, [onParse]);
 
-  // textarea 변경 시 rawXml 업데이트 (파싱은 버튼 또는 붙여넣기로)
   const handleChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    onChange(e.target.value);
-  }, [onChange]);
+    const v = e.target.value;
+    onChange(v);
+    scheduleParse(v);
+  }, [onChange, scheduleParse]);
 
   // Ctrl+Enter로도 파싱 가능
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
       e.preventDefault();
+      if (pasteTimerRef.current) clearTimeout(pasteTimerRef.current);
       onParse(rawXml);
     }
   }, [onParse, rawXml]);
@@ -130,7 +131,6 @@ export default function XmlInputPanel({
       <textarea
         value={rawXml}
         onChange={handleChange}
-        onPaste={handlePaste}
         onKeyDown={handleKeyDown}
         placeholder="WebSquare AI XML을 붙여넣으면 자동으로 파싱됩니다.&#10;(또는 Ctrl+Enter로 수동 파싱)"
         className="flex-1 min-h-[260px] w-full font-mono text-xs p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-200 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"

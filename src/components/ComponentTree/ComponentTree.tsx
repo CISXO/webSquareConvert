@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState, useCallback } from 'react';
 import {
   DndContext, closestCenter, PointerSensor,
   useSensor, useSensors, DragEndEvent,
@@ -18,6 +18,34 @@ function buildParentMap(nodes: ComponentNode[], parentId: string, map: Map<strin
   }
 }
 
+/** 트리 안 모든 그룹 노드의 id 목록 */
+function collectGroupIds(nodes: ComponentNode[], out: string[] = []): string[] {
+  for (const n of nodes) {
+    if (n.isGroup) {
+      out.push(n.id);
+      collectGroupIds(n.children, out);
+    }
+  }
+  return out;
+}
+
+function findById(nodes: ComponentNode[], id: string): ComponentNode | null {
+  for (const n of nodes) {
+    if (n.id === id) return n;
+    if (n.isGroup) {
+      const r = findById(n.children, id);
+      if (r) return r;
+    }
+  }
+  return null;
+}
+
+/** parentId의 직속 자식 배열 ('__body__' = 최상위) */
+function childrenOf(tree: ComponentNode[], parentId: string): ComponentNode[] {
+  if (parentId === '__body__') return tree;
+  return findById(tree, parentId)?.children ?? [];
+}
+
 interface Props {
   tree: ComponentNode[];
   selectedId: string | null;
@@ -25,10 +53,11 @@ interface Props {
   onMoveUp: (groupId: string, index: number) => void;
   onMoveDown: (groupId: string, index: number, total: number) => void;
   onReorder: (groupId: string, oldIndex: number, newIndex: number) => void;
-  onMoveNode: (activeId: string, parentId: string, beforeId: string | null) => void;
 }
 
-export default function ComponentTree({ tree, selectedId, onSelect, onMoveUp, onMoveDown, onReorder, onMoveNode }: Props) {
+export default function ComponentTree({
+  tree, selectedId, onSelect, onMoveUp, onMoveDown, onReorder,
+}: Props) {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
   const parentOf = useMemo(() => {
@@ -37,19 +66,39 @@ export default function ComponentTree({ tree, selectedId, onSelect, onMoveUp, on
     return map;
   }, [tree]);
 
+  const allGroupIds = useMemo(() => collectGroupIds(tree), [tree]);
+
+  // 펼침 상태를 트리 전체에서 관리 (여러 그룹 동시 펼침 가능)
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
+
+  const toggleExpand = useCallback((id: string) => {
+    setExpanded(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const allExpanded = allGroupIds.length > 0 && allGroupIds.every(id => expanded.has(id));
+  const toggleAll = () => setExpanded(allExpanded ? new Set() : new Set(allGroupIds));
+
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over) return;
     const activeId = String(active.id);
     const overId = String(over.id);
-    if (activeId === overId) return;
+    if (activeId === overId || overId.startsWith(INTO_PREFIX)) return;
 
-    if (overId.startsWith(INTO_PREFIX)) {
-      onMoveNode(activeId, overId.slice(INTO_PREFIX.length), null);
-      return;
-    }
-    const targetParent = parentOf.get(overId) ?? '__body__';
-    onMoveNode(activeId, targetParent, overId);
+    // 같은 그룹(부모)에 속한 형제끼리만 순서 변경
+    const activeParent = parentOf.get(activeId);
+    const overParent = parentOf.get(overId);
+    if (activeParent == null || activeParent !== overParent) return;
+
+    const siblings = childrenOf(tree, activeParent);
+    const oldIndex = siblings.findIndex(n => n.id === activeId);
+    const newIndex = siblings.findIndex(n => n.id === overId);
+    if (oldIndex === -1 || newIndex === -1) return;
+    onReorder(activeParent, oldIndex, newIndex);
   };
 
   if (tree.length === 0) {
@@ -60,43 +109,34 @@ export default function ComponentTree({ tree, selectedId, onSelect, onMoveUp, on
     );
   }
 
-  const shared = { selectedId, onSelect, onMoveUp, onMoveDown, onReorder, onMoveNode };
-
   return (
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-      {tree.length > 1 ? (
-        <div className="rounded-xl border border-dashed border-blue-300 dark:border-blue-700 p-3">
-          <div className="flex items-center gap-2 mb-3">
-            <span className="text-[11px] font-semibold text-blue-500 uppercase tracking-wide">body</span>
-            <span className="text-[11px] text-gray-400">({tree.length}개)</span>
-          </div>
-          <GroupNode groupId="__body__" nodes={tree} {...shared} />
+      <div className="rounded-lg border border-dashed border-blue-300/70 dark:border-blue-800/70 p-2">
+        <div className="flex items-center gap-2 mb-1.5">
+          <span className="text-[11px] font-semibold text-blue-500 uppercase tracking-wide">body</span>
+          <span className="text-[11px] text-gray-400">({tree.length})</span>
+          {allGroupIds.length > 0 && (
+            <button
+              onClick={toggleAll}
+              className="ml-auto text-[11px] px-2 py-1 rounded border border-gray-200 dark:border-gray-700 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            >
+              {allExpanded ? '모두 접기' : '모두 펼치기'}
+            </button>
+          )}
         </div>
-      ) : (
-        <div className="flex flex-col gap-4">
-          {tree.map(node => (
-            <div key={node.id} className="rounded-xl border border-dashed border-gray-300 dark:border-gray-600 p-3">
-              <div className="flex items-center gap-2 mb-3">
-                <span className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                  {node.tagName}
-                </span>
-                {node.xmlId && (
-                  <span className="text-[11px] font-mono bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-2 py-0.5 rounded">
-                    #{node.xmlId}
-                  </span>
-                )}
-              </div>
-              {node.isGroup ? (
-                <GroupNode groupId={node.id} nodes={node.children} {...shared} />
-              ) : (
-                <div className="text-xs text-gray-400 italic px-1">
-                  {node.tagName} {node.xmlId ? `#${node.xmlId}` : ''} — 단일 컴포넌트
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
+
+        <GroupNode
+          groupId="__body__"
+          nodes={tree}
+          selectedId={selectedId}
+          expanded={expanded}
+          onToggleExpand={toggleExpand}
+          onSelect={onSelect}
+          onMoveUp={onMoveUp}
+          onMoveDown={onMoveDown}
+          onReorder={onReorder}
+        />
+      </div>
     </DndContext>
   );
 }

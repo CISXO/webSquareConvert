@@ -5,14 +5,23 @@ interface Props {
   copied: boolean;
   onCopy: () => void;
   onSave: () => void;
+  onCollapse?: () => void;
 }
 
-export default function XmlOutputPanel({ outputXml, copied, onCopy, onSave }: Props) {
+export default function XmlOutputPanel({ outputXml, copied, onCopy, onSave, onCollapse }: Props) {
   return (
     <div className="flex flex-col gap-3 h-full">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300">결과 XML</h2>
         <div className="flex gap-2">
+          {onCollapse && (
+            <button
+              onClick={onCollapse}
+              className="text-xs px-3 py-1.5 rounded-md border border-gray-200 dark:border-gray-700 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            >
+              접기 ▼
+            </button>
+          )}
           <button
             onClick={onCopy}
             disabled={!outputXml}
@@ -34,7 +43,7 @@ export default function XmlOutputPanel({ outputXml, copied, onCopy, onSave }: Pr
         value={outputXml}
         readOnly
         placeholder="순서를 변경하면 결과 XML이 여기에 표시됩니다..."
-        className="flex-1 min-h-[200px] w-full font-mono text-xs p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-200 resize-none focus:outline-none"
+        className="flex-1 min-h-[120px] max-h-[32vh] w-full font-mono text-xs p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-200 resize-none focus:outline-none"
         spellCheck={false}
       />
     </div>

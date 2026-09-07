@@ -27,20 +27,16 @@ function updateGroupChildren(
   });
 }
 
-function findNode(tree: ComponentNode[], id: string): ComponentNode | null {
+/** id의 부모 그룹 id를 찾는다 ('__body__' = 최상위). 없으면 null. */
+function parentIdOf(tree: ComponentNode[], id: string, parent = '__body__'): string | null {
   for (const node of tree) {
-    if (node.id === id) return node;
+    if (node.id === id) return parent;
     if (node.isGroup) {
-      const found = findNode(node.children, id);
+      const found = parentIdOf(node.children, id, node.id);
       if (found) return found;
     }
   }
   return null;
-}
-
-function isSelfOrDescendant(node: ComponentNode, targetId: string): boolean {
-  if (node.id === targetId) return true;
-  return node.children.some(child => isSelfOrDescendant(child, targetId));
 }
 
 /** Remove a node from anywhere in the tree; returns the pruned tree and the removed node. */
@@ -190,19 +186,18 @@ export function useXmlReorder() {
   }, [parsed, rebuild]);
 
   /**
-   * 그룹 경계를 넘어 노드를 이동한다.
+   * 노드를 같은 부모 그룹 안에서만 재배치한다.
+   * 그룹 경계를 넘는 이동(그룹 → 다른 그룹, 그룹 → 최상위 등)은 무시한다.
    * @param activeId  이동할 노드
-   * @param parentId  대상 부모 그룹 id ('__body__' = 최상위)
-   * @param beforeId  이 노드 앞에 삽입, null이면 대상 그룹의 맨 끝
+   * @param parentId  대상 부모 그룹 id ('__body__' = 최상위) — activeId의 현재 부모와 같아야 함
+   * @param beforeId  이 노드 앞에 삽입, null이면 부모의 맨 끝
    */
   const handleMoveNode = useCallback((activeId: string, parentId: string, beforeId: string | null) => {
     if (!parsed) return;
     if (activeId === parentId || activeId === beforeId) return;
     setTree(prev => {
-      const active = findNode(prev, activeId);
-      if (!active) return prev;
-      // 그룹을 자기 자신 또는 자손 안으로 넣는 것 방지
-      if (parentId !== '__body__' && isSelfOrDescendant(active, parentId)) return prev;
+      // 같은 그룹 위치에서만 순서 변경 허용
+      if (parentIdOf(prev, activeId) !== parentId) return prev;
 
       const { tree: pruned, removed } = removeNode(prev, activeId);
       if (!removed) return prev;
@@ -211,6 +206,14 @@ export function useXmlReorder() {
       return next;
     });
   }, [parsed, rebuild]);
+
+  /** 전체 트리를 파싱 직후 원본 순서로 되돌린다. */
+  const handleReset = useCallback(() => {
+    if (!parsed) return;
+    const t = cloneTree(originalTree);
+    setTree(t);
+    rebuild(parsed, t);
+  }, [parsed, originalTree, rebuild]);
 
   const handleMoveUp = useCallback((groupId: string, index: number) => {
     if (index <= 0) return;
@@ -248,6 +251,7 @@ export function useXmlReorder() {
     xmlFiles, activeFile,
     handleParse, handleFileOpen, handleFolderOpen, handleSelectFile,
     handleReorder, handleMoveNode, handleMoveUp, handleMoveDown,
+    handleReset,
     handleCopy, handleSave,
   };
 }

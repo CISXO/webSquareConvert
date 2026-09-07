@@ -13,12 +13,12 @@ interface Props {
   isSelected: boolean;
   isExpanded: boolean;
   selectedId: string | null;
+  expanded: Set<string>;
   onSelect: (id: string | null) => void;
   onToggleExpand: (id: string) => void;
   onMoveUp: (groupId: string, index: number) => void;
   onMoveDown: (groupId: string, index: number, total: number) => void;
   onReorder: (groupId: string, oldIndex: number, newIndex: number) => void;
-  onMoveNode: (activeId: string, parentId: string, beforeId: string | null) => void;
 }
 
 const TAG_COLORS: Record<string, string> = {
@@ -29,9 +29,9 @@ const TAG_COLORS: Record<string, string> = {
 
 export default function ComponentCard({
   node, index, total, parentId,
-  isSelected, isExpanded, selectedId,
+  isSelected, isExpanded, selectedId, expanded,
   onSelect, onToggleExpand,
-  onMoveUp, onMoveDown, onReorder, onMoveNode,
+  onMoveUp, onMoveDown, onReorder,
 }: Props) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: node.id });
@@ -49,7 +49,7 @@ export default function ComponentCard({
     <div
       ref={setNodeRef}
       style={style}
-      className={`rounded-lg border overflow-hidden transition-colors ${
+      className={`rounded border overflow-hidden transition-colors ${
         isSelected
           ? 'border-blue-400 dark:border-blue-500 ring-1 ring-blue-400 dark:ring-blue-500'
           : 'border-gray-200 dark:border-gray-700'
@@ -57,7 +57,7 @@ export default function ComponentCard({
     >
       {/* 카드 헤더 */}
       <div
-        className={`flex items-center gap-1.5 px-2 py-2 cursor-pointer ${
+        className={`flex items-center gap-1.5 px-2 py-1 cursor-pointer ${
           isSelected ? 'bg-blue-50 dark:bg-blue-900/20' : 'hover:bg-gray-50 dark:hover:bg-gray-750'
         }`}
         onClick={() => onSelect(isSelected ? null : node.id)}
@@ -66,7 +66,7 @@ export default function ComponentCard({
         {hasChildren ? (
           <button
             onClick={e => { e.stopPropagation(); onToggleExpand(node.id); }}
-            className="w-5 h-5 flex items-center justify-center text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 rounded shrink-0 transition-colors"
+            className="w-4 h-4 flex items-center justify-center text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 rounded shrink-0 transition-colors"
             title={isExpanded ? '접기' : '펼치기'}
           >
             <span
@@ -77,16 +77,16 @@ export default function ComponentCard({
             </span>
           </button>
         ) : (
-          <span className="w-5 shrink-0" />
+          <span className="w-4 shrink-0" />
         )}
 
-        {/* 드래그 핸들 — ❯와 명확히 분리된 위치 */}
+        {/* 드래그 핸들 */}
         <span
           {...attributes}
           {...listeners}
           onClick={e => e.stopPropagation()}
-          className="cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 dark:hover:text-gray-400 select-none text-base leading-none shrink-0"
-          title="드래그하여 이동"
+          className="cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 dark:hover:text-gray-400 select-none text-sm leading-none shrink-0"
+          title="드래그하여 같은 그룹 안에서 이동"
         >
           ⠿
         </span>
@@ -101,35 +101,36 @@ export default function ComponentCard({
           {node.xmlId || <span className="italic text-gray-300 dark:text-gray-600">id없음</span>}
         </span>
 
-        {/* ▲▼ 이동 — 오른쪽 고정 */}
-        <div className="flex gap-0.5 shrink-0 ml-1" onClick={e => e.stopPropagation()}>
+        {/* 이동 — 오른쪽 고정 */}
+        <div className="flex items-center gap-0.5 shrink-0 ml-1" onClick={e => e.stopPropagation()}>
           <button
             onClick={() => onMoveUp(parentId, index)}
             disabled={index === 0}
-            className="w-6 h-6 flex items-center justify-center rounded border border-gray-200 dark:border-gray-700 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-25 disabled:cursor-not-allowed text-[11px] transition-colors"
+            className="w-5 h-5 flex items-center justify-center rounded border border-gray-200 dark:border-gray-700 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-25 disabled:cursor-not-allowed text-[11px] transition-colors"
             title="위로 이동"
           >▲</button>
           <button
             onClick={() => onMoveDown(parentId, index, total)}
             disabled={index === total - 1}
-            className="w-6 h-6 flex items-center justify-center rounded border border-gray-200 dark:border-gray-700 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-25 disabled:cursor-not-allowed text-[11px] transition-colors"
+            className="w-5 h-5 flex items-center justify-center rounded border border-gray-200 dark:border-gray-700 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-25 disabled:cursor-not-allowed text-[11px] transition-colors"
             title="아래로 이동"
           >▼</button>
         </div>
       </div>
 
-      {/* 중첩 그룹 (아코디언으로 제어) */}
+      {/* 중첩 그룹 */}
       {hasChildren && isExpanded && (
-        <div className="border-t border-dashed border-gray-200 dark:border-gray-700 px-2 py-2 bg-gray-50 dark:bg-gray-800/50">
+        <div className="border-t border-dashed border-gray-200 dark:border-gray-700 px-2 py-1.5 bg-gray-50 dark:bg-gray-800/50">
           <GroupNode
             groupId={node.id}
             nodes={node.children}
             selectedId={selectedId}
+            expanded={expanded}
+            onToggleExpand={onToggleExpand}
             onSelect={onSelect}
             onMoveUp={onMoveUp}
             onMoveDown={onMoveDown}
             onReorder={onReorder}
-            onMoveNode={onMoveNode}
             depth={1}
           />
         </div>
@@ -138,7 +139,7 @@ export default function ComponentCard({
       {/* 접힌 요약 */}
       {hasChildren && !isExpanded && (
         <div
-          className="border-t border-dashed border-gray-200 dark:border-gray-700 px-3 py-1 bg-gray-50 dark:bg-gray-800/50 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
+          className="border-t border-dashed border-gray-200 dark:border-gray-700 px-3 py-0.5 bg-gray-50 dark:bg-gray-800/50 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
           onClick={() => onToggleExpand(node.id)}
         >
           <span className="text-[11px] text-gray-400 italic">

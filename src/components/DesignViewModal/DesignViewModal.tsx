@@ -7,13 +7,14 @@ import VisualView from '@/components/VisualView/VisualView';
 interface Props {
   tree: ComponentNode[];
   onClose: () => void;
+  onReset: () => void;
   onMoveUp: (groupId: string, index: number) => void;
   onMoveDown: (groupId: string, index: number, total: number) => void;
   onReorder: (groupId: string, oldIndex: number, newIndex: number) => void;
   onMoveNode: (activeId: string, parentId: string, beforeId: string | null) => void;
 }
 
-export default function DesignViewModal({ tree, onClose, onMoveUp, onMoveDown, onReorder, onMoveNode }: Props) {
+export default function DesignViewModal({ tree, onClose, onReset, onMoveUp, onMoveDown, onReorder, onMoveNode }: Props) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   return (
@@ -25,10 +26,19 @@ export default function DesignViewModal({ tree, onClose, onMoveUp, onMoveDown, o
             <h2 className="text-sm font-bold">디자인 뷰</h2>
             <p className="text-[11px] text-gray-400 mt-0.5">드래그 · ▲▼ 버튼으로 직접 순서 변경 가능</p>
           </div>
-          <button
-            onClick={onClose}
-            className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 hover:text-gray-600 text-lg transition-colors"
-          >×</button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onReset}
+              className="text-[11px] px-2.5 py-1 rounded-md bg-amber-50 hover:bg-amber-100 dark:bg-amber-900/20 dark:hover:bg-amber-900/40 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-800 transition-colors font-medium"
+              title="전체를 기존 소스 순서로 되돌리기"
+            >
+              ⟲ 전체 초기화
+            </button>
+            <button
+              onClick={onClose}
+              className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 hover:text-gray-600 text-lg transition-colors"
+            >×</button>
+          </div>
         </div>
         <div
           className="flex-1 overflow-y-auto p-5"
